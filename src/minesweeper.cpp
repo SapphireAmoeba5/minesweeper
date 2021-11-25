@@ -16,7 +16,7 @@ namespace Minesweeper
     static Window* window;
     static Shader* shader;
 
-    glm::ivec2 boardSize = {10, 10};
+    glm::ivec2 boardSize = {16, 16};
 
     bool Init()
     {

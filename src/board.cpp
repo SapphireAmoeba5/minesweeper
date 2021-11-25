@@ -12,6 +12,9 @@ namespace Board
     int Index(int x, int y);
     void FirstClick(int x, int y);
     void countBombs(const glm::ivec2& currentIndex, const glm::ivec2& nextIndex);
+    bool ValidIndex(int x, int y);
+    bool ValidIndex(int index);
+    void RecursivelyUncoverTiles(glm::ivec2 index, int count = 0);
     struct Tile
     {
         int bombs = 0;
@@ -49,7 +52,7 @@ namespace Board
         firstClick = true;
         failed = false;
 
-        if(!texturesLoaded)
+        if (!texturesLoaded)
         {
             textureClicked[0] = Renderer::LoadTexture("assets/textures/tiles/empty.png");
             textureClicked[1] = Renderer::LoadTexture("assets/textures/tiles/square1.png");
@@ -67,9 +70,9 @@ namespace Board
             unclicked = Renderer::LoadTexture("assets/textures/tiles/unclicked.png");
 
             bool loadFailure = false;
-            for(int i = 0; i < 9; i++)
+            for (int i = 0; i < 9; i++)
             {
-                if(textureClicked[i] == 0)
+                if (textureClicked[i] == 0)
                 {
                     DEBUG_WARN("Failure loading textures!");
                     loadFailure = true;
@@ -77,18 +80,18 @@ namespace Board
                 }
             }
 
-            if(!loadFailure)
+            if (!loadFailure)
             {
-                if(sqbomb == 0)
+                if (sqbomb == 0)
                     loadFailure = true;
-                else if(sqbombred == 0)
+                else if (sqbombred == 0)
                     loadFailure = true;
-                else if(sqflag == 0)
+                else if (sqflag == 0)
                     loadFailure = true;
-                else if(unclicked == 0)
+                else if (unclicked == 0)
                     loadFailure = true;
 
-                if(loadFailure)
+                if (loadFailure)
                     DEBUG_WARN("Failure loading textures!");
             }
         }
@@ -107,7 +110,12 @@ namespace Board
         // Calculate the tile size each frame
         tileSize = { windowSize.x / boardSize2D.x, windowSize.y / boardSize2D.y };
 
-        // Draw each tile in a nested for loop
+        glm::ivec2 cursorPos = window.CursorPos();
+
+        // The tile the mouse is hovering over
+        int tileX = cursorPos.x / tileSize.x;
+        int tileY = cursorPos.y / tileSize.y;
+
         for (int x = 0; x < boardSize2D.x; x++)
         {
             for (int y = 0; y < boardSize2D.y; y++)
@@ -118,45 +126,50 @@ namespace Board
                 // The index of the current tile
                 int index = Index(x, y);
 
-                glm::ivec2 cursorPos = window.CursorPos();
-                glm::vec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
-                if(!failed && (int)(cursorPos.x / tileSize.x) == x && (int)(cursorPos.y / tileSize.y) == y)
-                {   
-                    color = {0.80f, 0.80f, 0.80f, 1.0f};
-                }
+                glm::vec4 tint = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+
+
+                if (tileX == x && tileY == y && cursorPos.x >= 0 && cursorPos.y >= 0 && !failed)
+                    tint = { 0.80f, 0.80f, 0.80f, 1.0f };
+
+                // Tint the squares surrounding the one being hovered if the middle mouse button is held
+                if(!board[Index(x,y)].isClicked && (((tileY == y || tileY + 1 == y || tileY - 1 == y) && (tileX - 1 == x || tileX + 1 == x)) || ((tileX == x || tileX - 1 == x || tileX + 1 == x) && (tileY + 1 == y || tileY - 1 == y))) && glfwGetMouseButton(window.GetWindow(), GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS)
+                    tint = {0.50f, 0.50f, 0.50f, 1.0f};
+                
 
                 // The texture ID that will be rendered
                 uint32_t id;
 
                 // Find which texture ID to render with
-                if(board[index].isBomb && board[index].isClicked)
+                if (board[index].isBomb && board[index].isClicked)
                     id = sqbombred;
-                else if(board[index].isBomb && failed)
+                else if (board[index].isBomb && failed)
                     id = sqbomb;
-                else if(board[index].isFlagged)
+                else if (board[index].isFlagged)
                     id = sqflag;
-                else if(board[index].isClicked)
+                else if (board[index].isClicked)
                     id = textureClicked[board[index].bombs];
-                else if(!board[index].isClicked)
+                else if (!board[index].isClicked)
                     id = unclicked;
 
-                Renderer::DrawQuad(pos, tileSize, color, id);
+                Renderer::DrawQuad(pos, tileSize, tint, id);
             }
         }
     }
 
-    void Click(const glm::vec2& pos,  Action action)
+    void Click(const glm::vec2& pos, Action action)
     {
         // The x and y index if the tile that was clicked
         int x = pos.x / tileSize.x;
         int y = pos.y / tileSize.y;
 
         // If failed or the mouse click is out of bounds then exit the function
-        if(failed || x < 0 || y < 0 || x >= boardSize2D.x || y >= boardSize2D.y)
+        if (failed || x < 0 || y < 0 || x >= boardSize2D.x || y >= boardSize2D.y)
             return;
 
-        int index = Index(x,y);
-        if(action == Action::LeftClick)
+        int index = Index(x, y);
+        if (action == Action::LeftClick)
         {
             if (firstClick)
             {
@@ -164,26 +177,39 @@ namespace Board
                 firstClick = false;
             }
 
-            if(!board[index].isFlagged && board[index].isBomb)
+            if (!board[index].isFlagged && board[index].isBomb)
             {
                 failed = true;
                 board[index].isClicked = true;
             }
-            else if(!board[index].isFlagged && !board[index].isBomb)
+            else if (!board[index].isFlagged && !board[index].isBomb && board[index].bombs == 0)
+            {
+                RecursivelyUncoverTiles({ x,y });
+            }
+            else if (!board[index].isFlagged && !board[index].isBomb)
             {
                 board[index].isClicked = true;
             }
         }
-        else if(action == Action::RightClick && !board[index].isClicked)
+        else if (action == Action::RightClick && !board[index].isClicked)
         {
             board[index].isFlagged = !board[index].isFlagged;
         }
-        
+
     }
 
     bool GetFailStatus()
     {
         return failed;
+    }
+
+    bool ValidIndex(int x, int y)
+    {
+        return x >= 0 && y >= 0 && x < boardSize2D.x&& y < boardSize2D.y;
+    }
+    bool ValidIndex(int index)
+    {
+        return index >= 0 && index < boardSize1D;
     }
 }
 
@@ -194,23 +220,27 @@ int Board::Index(int x, int y)
     return y * boardSize2D.x + x;
 }
 
+// Initializes the board when it is clicked for the first time
 void Board::FirstClick(int x, int y)
 {
     Random ran;
 
+    // The number of tiles that the game starts you off with
+    int startingTiles = 1;
+    for (int i = 0; i < startingTiles; i++)
+    {
+
+    }
+
     // Randomly place bombs on the board
-    ran.SetRange(boardSize1D / 5, boardSize1D / 3);
-    int mineCount = ran();
-
-
-    ran.SetRange(0, (uint32_t)-1);
-    for(int i = 0; i < mineCount; i++)
+    int mineCount = 40;
+    for (int i = 0; i < mineCount; i++)
     {
         int index;
         do
         {
             index = ran() % boardSize1D;
-        } while (Index(x, y) == index || board[index].isBomb);
+        } while (Index(x, y) == index || board[index].isBomb || board[index].isClicked);
         board[index].isBomb = true;
     }
 
@@ -220,18 +250,14 @@ void Board::FirstClick(int x, int y)
     {
         for (int y = 0; y < boardSize2D.y; y++)
         {
-            int curIndex = Index(x, y);
-
-            glm::ivec2 nexIndex;
-
-            countBombs({x,y}, {x,y+1});
-            countBombs({x,y}, { x + 1, y + 1 });
-            countBombs({x,y}, { x + 1, y });
-            countBombs({x,y}, { x + 1, y - 1 });
-            countBombs({x,y}, { x, y - 1 });
-            countBombs({x,y}, { x - 1, y - 1 });
-            countBombs({x,y}, { x - 1, y });
-            countBombs({x,y}, { x - 1, y + 1 });
+            countBombs({ x,y }, { x,y + 1 });
+            countBombs({ x,y }, { x + 1, y + 1 });
+            countBombs({ x,y }, { x + 1, y });
+            countBombs({ x,y }, { x + 1, y - 1 });
+            countBombs({ x,y }, { x, y - 1 });
+            countBombs({ x,y }, { x - 1, y - 1 });
+            countBombs({ x,y }, { x - 1, y });
+            countBombs({ x,y }, { x - 1, y + 1 });
         }
     }
 }
@@ -242,6 +268,67 @@ void Board::countBombs(const glm::ivec2& currentIndex, const glm::ivec2& nextInd
     if (nextIndex.x >= 0 && nextIndex.y >= 0 && nextIndex.x < boardSize2D.x && nextIndex.y < boardSize2D.y)
     {
         // If the bomb specified by nextIndex is a bomb then add one the tile specified by currentIndex's bomb count
-        board[Index(currentIndex.x, currentIndex.y)].bombs += board[Index(nextIndex.x, nextIndex.y)].isBomb;    
+        board[Index(currentIndex.x, currentIndex.y)].bombs += board[Index(nextIndex.x, nextIndex.y)].isBomb;
+    }
+}
+
+void Board::RecursivelyUncoverTiles(glm::ivec2 index, int count /*= 0*/)
+{
+    board[Index(index.x, index.y)].isClicked = true;
+
+    index = { index.x, index.y + 1 };
+    if (ValidIndex(index.x, index.y))
+    {
+        if (!board[Index(index.x, index.y)].isClicked && board[Index(index.x, index.y)].bombs == 0) { RecursivelyUncoverTiles(index); }
+        board[Index(index.x, index.y)].isClicked = true;
+    }
+
+    index = { index.x + 1, index.y };
+    if (ValidIndex(index.x, index.y))
+    {
+        if (!board[Index(index.x, index.y)].isClicked && board[Index(index.x, index.y)].bombs == 0) { RecursivelyUncoverTiles(index); }
+        board[Index(index.x, index.y)].isClicked = true;
+    }
+
+    index = { index.x, index.y - 1 };
+    if (ValidIndex(index.x, index.y))
+    {
+        if (!board[Index(index.x, index.y)].isClicked && board[Index(index.x, index.y)].bombs == 0) { RecursivelyUncoverTiles(index); }
+        board[Index(index.x, index.y)].isClicked = true;
+    }
+
+    index = { index.x, index.y - 1 };
+    if (ValidIndex(index.x, index.y))
+    {
+        if (!board[Index(index.x, index.y)].isClicked && board[Index(index.x, index.y)].bombs == 0) { RecursivelyUncoverTiles(index); }
+        board[Index(index.x, index.y)].isClicked = true;
+    }
+
+    index = { index.x - 1, index.y };
+    if (ValidIndex(index.x, index.y))
+    {
+        if (!board[Index(index.x, index.y)].isClicked && board[Index(index.x, index.y)].bombs == 0) { RecursivelyUncoverTiles(index); }
+        board[Index(index.x, index.y)].isClicked = true;
+    }
+
+    index = { index.x - 1, index.y };
+    if (ValidIndex(index.x, index.y))
+    {
+        if (!board[Index(index.x, index.y)].isClicked && board[Index(index.x, index.y)].bombs == 0) { RecursivelyUncoverTiles(index); }
+        board[Index(index.x, index.y)].isClicked = true;
+    }
+
+    index = { index.x, index.y + 1 };
+    if (ValidIndex(index.x, index.y))
+    {
+        if (!board[Index(index.x, index.y)].isClicked && board[Index(index.x, index.y)].bombs == 0) { RecursivelyUncoverTiles(index); }
+        board[Index(index.x, index.y)].isClicked = true;
+    }
+
+    index = { index.x, index.y + 1 };
+    if (ValidIndex(index.x, index.y))
+    {
+        if (!board[Index(index.x, index.y)].isClicked && board[Index(index.x, index.y)].bombs == 0) { RecursivelyUncoverTiles(index); }
+        board[Index(index.x, index.y)].isClicked = true;
     }
 }

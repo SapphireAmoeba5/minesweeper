@@ -1,3 +1,5 @@
+#pragma once
+
 #include <renderer/renderer.h>
 #include <Window.h>
 
