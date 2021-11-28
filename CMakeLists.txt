@@ -95,3 +95,5 @@ configure_file(${CMAKE_SOURCE_DIR}/assets/textures/tiles/squarebombred.png ${CMA
 configure_file(${CMAKE_SOURCE_DIR}/assets/textures/tiles/squareflag.png ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/textures/tiles/squareflag.png COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/assets/textures/tiles/unclicked.png ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/textures/tiles/unclicked.png COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/assets/textures/tiles/squareflagwrong.png ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/textures/tiles/squareflagwrong.png COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/assets/textures/winner.png ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/textures/winner.png COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/assets/textures/bird.png ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/textures/bird.png COPYONLY)

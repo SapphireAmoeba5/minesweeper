@@ -4,3 +4,9 @@
 [submodule "vendor/glm"]
 	path = vendor/glm
 	url = https://github.com/g-truc/glm.git
+[submodule "vendor/Timer"]
+	path = vendor/Timer
+	url = https://github.com/SapphireAmoeba5/Timer.git
+[submodule "vendor/Random"]
+	path = vendor/Random
+	url = https://github.com/SapphireAmoeba5/Random.git

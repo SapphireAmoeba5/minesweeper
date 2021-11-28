@@ -19,4 +19,5 @@ namespace Board
     void Click(const glm::vec2& pos, Action action);
 
     bool GetFailStatus();
+    bool GetWinStatus();
 }

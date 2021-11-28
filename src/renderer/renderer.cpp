@@ -173,6 +173,7 @@ namespace Renderer
             glActiveTexture(GL_TEXTURE0 + i);
             glBindTexture(GL_TEXTURE_2D, s_Data->boundTextures[i]);
         }
+
         glDrawElements(GL_TRIANGLES, s_Data->indexCount, GL_UNSIGNED_INT, 0);
     }
 

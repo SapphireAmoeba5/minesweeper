@@ -9,6 +9,8 @@
 
 #include <macros.h>
 
+#include "unimportant.h"
+
 namespace Minesweeper
 {
     void glfwMouseClickCallback(GLFWwindow* glfwWindow, int button, int state, int mods);
@@ -72,13 +74,17 @@ namespace Minesweeper
 
         DEBUG_INFO("Initializing MVP");
         glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-        glm::mat4 proj = glm::ortho(0.0f, 900.0f, 0.0f, 900.0f);
+        glm::mat4 proj = glm::ortho(0.0f, (float)window->Size().x, 0.0f, (float)window->Size().y);
         shader->SetUniformMat4f("u_MVP", proj * view);
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         Board::Init(boardSize, window->Size());
+
+        // Not important
+        unimportant::init(window);
+
         return true;
     }
 
@@ -92,7 +98,9 @@ namespace Minesweeper
             Renderer::BeginBatch();
 
             Board::Draw(*window);
-
+            
+            unimportant::dothething();
+            
             Renderer::EndBatch();
 
             window->SwapBuffers();
@@ -136,13 +144,20 @@ void Minesweeper::glfwMouseClickCallback(GLFWwindow* glfwWindow, int button, int
             case GLFW_MOUSE_BUTTON_RIGHT:
                 Board::Click(cursorPos, Board::Action::RightClick);
                 break;
+            case GLFW_MOUSE_BUTTON_MIDDLE:
+                if(Board::GetFailStatus() == true || Board::GetWinStatus() == true)
+                {
+                    Board::Shutdown();
+                    Board::Init(boardSize, window->Size());
+                }
+                break;
         }
     }
 }
 
 void Minesweeper::glfwKeyCallback(GLFWwindow* glfwWindow, int key, int scancode, int action, int mods)
 {
-    if(action == GLFW_PRESS && ((Board::GetFailStatus() && key == GLFW_KEY_SPACE) || (key == GLFW_KEY_R && mods == GLFW_MOD_CONTROL)))
+    if(action == GLFW_PRESS && (((Board::GetFailStatus() == true || Board::GetWinStatus() == true) && key == GLFW_KEY_SPACE) || (key == GLFW_KEY_R && mods == GLFW_MOD_CONTROL)))
     {
         Board::Shutdown();
         Board::Init(boardSize, window->Size());

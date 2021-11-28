@@ -10,7 +10,7 @@
 #include <vector>
 
 // Quickly be able to render the board in order to debug
-// #define DEBUG_RENDER
+//#define DEBUG_RENDER
 
 
 namespace Board
@@ -22,7 +22,7 @@ namespace Board
     bool ValidIndex(int x, int y);
     bool ValidIndex(int index);
     bool ValidIndex(const glm::ivec2& index);
-    void RecursivelyUncoverTiles(glm::ivec2 index);
+    uint32_t RecursivelyUncoverTiles(glm::ivec2 index);
     void UncoverTile(const glm::ivec2& index);
     std::vector<glm::ivec2> GetSurroundingCells(glm::ivec2 index);
 
@@ -44,6 +44,10 @@ namespace Board
 
     bool firstClick;
     bool failed;
+    // The number of tiles that are safe to click on
+    uint32_t safeCount;
+    // If the player won the game yet
+    bool won;
 
     uint32_t textureClicked[9];
     uint32_t sqbomb;
@@ -51,7 +55,7 @@ namespace Board
     uint32_t sqflag;
     uint32_t sqflagwrong;
     uint32_t unclicked;
-
+    uint32_t winner;
     // True when the board is first initialized. This is never set to false after
     bool texturesLoaded = false;
 
@@ -66,6 +70,8 @@ namespace Board
 
         firstClick = true;
         failed = false;
+        won = false;
+        safeCount = 0;
 
         if (!texturesLoaded)
         {
@@ -84,6 +90,8 @@ namespace Board
             sqflag = Renderer::LoadTexture("assets/textures/tiles/squareflag.png");
             sqflagwrong = Renderer::LoadTexture("assets/textures/tiles/squareflagwrong.png");
             unclicked = Renderer::LoadTexture("assets/textures/tiles/unclicked.png");
+
+            winner = Renderer::LoadTexture("assets/textures/winner.png");
             bool loadFailure = false;
             for (int i = 0; i < 9; i++)
             {
@@ -123,8 +131,8 @@ namespace Board
     void Draw(Window& window)
     {
         // Calculate the tile size each frame
+        windowSize = window.Size();
         tileSize = { windowSize.x / boardSize2D.x, windowSize.y / boardSize2D.y };
-
         glm::ivec2 cursorPos = window.CursorPos();
 
         // The tile the mouse is hovering over
@@ -144,11 +152,11 @@ namespace Board
                 glm::vec4 tint = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 
-                if ((!board[index].isClicked || board[index].bombs != 0) && tileX == x && tileY == y && cursorPos.x >= 0 && cursorPos.y >= 0 && !failed)
+                if ((!board[index].isClicked || board[index].bombs != 0) && tileX == x && tileY == y && cursorPos.x >= 0 && cursorPos.y >= 0 && !failed && !won)
                     tint = { 0.80f, 0.80f, 0.80f, 1.0f };
 
                 // Tint the squares surrounding the one being hovered if the right mouse button is held
-                if (board[Index(tileX, tileY)].isClicked && cursorPos.x >= 0 && cursorPos.y >= 0 && !board[index].isFlagged && !board[index].isClicked && (((tileY == y || tileY + 1 == y || tileY - 1 == y) && (tileX - 1 == x || tileX + 1 == x)) || ((tileX == x || tileX - 1 == x || tileX + 1 == x) && (tileY + 1 == y || tileY - 1 == y))) && glfwGetMouseButton(window.GetWindow(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
+                if (!won && !failed && board[Index(tileX, tileY)].isClicked && cursorPos.x >= 0 && cursorPos.y >= 0 && !board[index].isFlagged && !board[index].isClicked && (((tileY == y || tileY + 1 == y || tileY - 1 == y) && (tileX - 1 == x || tileX + 1 == x)) || ((tileX == x || tileX - 1 == x || tileX + 1 == x) && (tileY + 1 == y || tileY - 1 == y))) && glfwGetMouseButton(window.GetWindow(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
                     tint = { 0.50f, 0.50f, 0.50f, 1.0f };
 
 
@@ -158,10 +166,12 @@ namespace Board
 
                 // Find which texture ID to render with
                 #ifdef DEBUG_RENDER
-                if(board[index].isBomb)
-                    id = sqbomb;
-                else if(board[index].isFlagged)
+                if(board[index].isFlagged)
                     id = sqflag;
+                else if(board[index].isBomb)
+                    id = sqbomb;
+                else if(board[index].isClicked == false)
+                    id = unclicked;
                 else
                     id = textureClicked[board[index].bombs];
                 #else
@@ -182,6 +192,18 @@ namespace Board
                 Renderer::DrawQuad(pos, tileSize, tint, id);
             }
         }
+
+        static float alpha = 0.0f;
+        if(won)
+        {
+            Renderer::DrawQuad({windowSize.x / 2, windowSize.y / 2}, {windowSize.x, windowSize.y}, {1.0f, 1.0f, 1.0f, alpha / 10.0f});
+            Renderer::DrawQuad({windowSize.x / 2, 800.0f / 2}, {800.0f, 800.0f}, {1.0f, 1.0f, 1.0f, alpha}, winner);
+            
+            if(alpha < 1.0f)
+                alpha += 0.01f;
+        }
+        else
+            alpha = 0.0f;
     }
 
     /*
@@ -194,7 +216,7 @@ namespace Board
         int y = pos.y / tileSize.y;
 
         // If failed or the mouse click is out of bounds then exit the function
-        if (failed || x < 0 || y < 0 || x >= boardSize2D.x || y >= boardSize2D.y)
+        if (won || failed || x < 0 || y < 0 || x >= boardSize2D.x || y >= boardSize2D.y)
             return;
 
         int index = Index(x, y);
@@ -247,6 +269,10 @@ namespace Board
     {
         return failed;
     }
+    bool GetWinStatus()
+    {
+        return won;
+    }
 
     
 }
@@ -287,6 +313,7 @@ void Board::FirstClick(int x, int y)
     Random ran;
 
     int mineCount = 40;
+    safeCount = boardSize1D - mineCount;
     for (int i = 0; i < mineCount; i++)
     {
         // Generates the random index and verifies it
@@ -314,19 +341,28 @@ void Board::UncoverTile(const glm::ivec2& index)
 {
     int index1D = Index(index.x, index.y);
 
-    if (!board[index1D].isFlagged && board[index1D].isBomb)
+    // Return if the tile is already clicked or flagged
+    if(board[index1D].isClicked == true || board[index1D].isFlagged == true)
+        return;
+
+    safeCount--;
+
+    if (board[index1D].isBomb)
     {
         failed = true;
         board[index1D].isClicked = true;
     }
-    else if (!board[index1D].isFlagged && !board[index1D].isBomb && board[index1D].bombs == 0)
+    else if (!board[index1D].isBomb && board[index1D].bombs == 0)
     {
-        RecursivelyUncoverTiles({ index.x,index.y });
+        safeCount -= RecursivelyUncoverTiles({ index.x,index.y });
     }
-    else if (!board[index1D].isFlagged && !board[index1D].isBomb)
+    else if (!board[index1D].isBomb)
     {
         board[index1D].isClicked = true;
     }
+
+    // If safeCount is 0 then set won to true
+    won = (safeCount == 0 && !failed);
 }
 
 // Returns everything surrounding the parameter. Each index is always a valid index
@@ -374,8 +410,9 @@ std::vector<glm::ivec2> Board::GetSurroundingCells(glm::ivec2 index)
     but if the bomb being removed also has a bomb count of 0,
     it will also remove the tiles surrounding that tile
 */
-void Board::RecursivelyUncoverTiles(glm::ivec2 index)
+uint32_t Board::RecursivelyUncoverTiles(glm::ivec2 index)
 {
+    uint32_t uncoveredTiles = 0;
     std::vector<glm::ivec2> indicies = GetSurroundingCells(index);
 
     board[Index(index.x, index.y)].isClicked = true;
@@ -384,8 +421,14 @@ void Board::RecursivelyUncoverTiles(glm::ivec2 index)
     {
         int index = Index(indicies[i].x, indicies[i].y);
 
-        if (!board[index].isClicked && board[index].bombs == 0) { RecursivelyUncoverTiles(indicies[i]); }
-        board[index].isClicked = true;
+        if(board[index].isClicked == false)
+            uncoveredTiles++;
+
+        if (!board[index].isClicked && board[index].bombs == 0) { uncoveredTiles += RecursivelyUncoverTiles(indicies[i]); }
+
         board[index].isFlagged = false;
+        board[index].isClicked = true;
     }
+
+    return uncoveredTiles;
 }
