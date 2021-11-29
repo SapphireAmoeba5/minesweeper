@@ -318,7 +318,7 @@ void Board::FirstClick(int x, int y)
 {
     Random ran;
 
-    int mineCount = 0;
+    int mineCount = 40;
     safeCount = boardSize1D - mineCount;
     for (int i = 0; i < mineCount; i++)
     {
