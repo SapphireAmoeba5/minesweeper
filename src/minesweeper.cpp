@@ -90,6 +90,7 @@ namespace Minesweeper
 
     bool Run()
     {
+        size_t num = 0;
         while (!window->ShouldClose())
         {
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);

@@ -130,6 +130,9 @@ namespace Board
 
     void Draw(Window& window)
     {
+        static float deltaTime = 0.0f;
+        static float previousTime = glfwGetTime();
+
         // Calculate the tile size each frame
         windowSize = window.Size();
         tileSize = { windowSize.x / boardSize2D.x, windowSize.y / boardSize2D.y };
@@ -200,10 +203,13 @@ namespace Board
             Renderer::DrawQuad({windowSize.x / 2, 800.0f / 2}, {800.0f, 800.0f}, {1.0f, 1.0f, 1.0f, alpha}, winner);
             
             if(alpha < 1.0f)
-                alpha += 0.01f;
+                alpha += 1.0f * deltaTime;
         }
         else
             alpha = 0.0f;
+
+        deltaTime = glfwGetTime() - previousTime;
+        previousTime = glfwGetTime();
     }
 
     /*
@@ -312,7 +318,7 @@ void Board::FirstClick(int x, int y)
 {
     Random ran;
 
-    int mineCount = 40;
+    int mineCount = 0;
     safeCount = boardSize1D - mineCount;
     for (int i = 0; i < mineCount; i++)
     {
