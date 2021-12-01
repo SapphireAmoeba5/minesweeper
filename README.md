@@ -1,4 +1,4 @@
-#Controls
+## Controls
 
 *CTRL + R* or *Middle Mouse Button* to reset the game after you've either won or lost  
 *Left Click* to uncover a tile  
